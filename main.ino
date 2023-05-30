@@ -1,3 +1,4 @@
+#include <TimerOne.h>
 
 //We create variables for the time width values of each PWM input signal
 unsigned long counter_1, counter_2, counter_3, counter_4, current_count;
@@ -34,9 +35,12 @@ void setup() {
   PCMSK0 |= (1 << PCINT2);  //Set pin D10 trigger an interrupt on state change.                                               
   PCMSK0 |= (1 << PCINT4);  //Set pin D12 trigger an interrupt on state change.  
                                                  
-                                               
+  // pinMode(PWM_YAW_PIN, OUTPUT);                     
+  pinMode(3, OUTPUT);
+  pinMode(2, INPUT);
   
-  
+  Timer1.initialize(20000); // Set the period to 20,000 microseconds (50Hz)
+
   //Start the serial in order to see the result on the monitor
   //Remember to select the same baud rate on the serial monitor
   Serial.begin(9600);  
@@ -54,16 +58,22 @@ void loop() {
   input_ROLL;
   input_THROTTLE;
   // Update the plots with the received values
-  int value_YAW = map(input_YAW, 1001, 2003, 0, 1023); // Map the input values to fit within the Serial Plotter range
-  int value_PITCH = map(input_PITCH, 1001, 2002, 0, 1023);
-  int value_ROLL = map(input_ROLL, 1001, 2003, 0, 1023);
-  int value_THROTTLE = map(input_THROTTLE, 1000, 2002, 0, 1023);
 
+  int value_YAW = map(input_YAW, 1000, 2003, 0, 255); // Map the input values to fit within the Serial Plotter range
+  int value_PITCH = map(input_PITCH, 1000, 2003, 0, 255);
+  int value_ROLL = map(input_ROLL, 1000, 2003, 0, 255);
+  // int value_THROTTLE = map(input_THROTTLE, 1000, 2003, 0, 255);
+  // int value_THROTTLE = map(input_THROTTLE, 0, 2003, 0, 255);
+  int value_THROTTLE = map(input_THROTTLE, 0, 2003, 0, 100);
   // Output the mapped values to PWM pins
-  analogWrite(PWM_YAW_PIN, input_YAW); //is good
-  analogWrite(PWM_PITCH_PIN, input_ROLL); // sync input_ROLL
-  analogWrite(PWM_ROLL_PIN, input_THROTTLE); // sync
-  analogWrite(PWM_THROTTLE_PIN, input_PITCH); // sync input_PITCH
+  // analogWrite(PWM_YAW_PIN, input_YAW); //is good
+  // analogWrite(PWM_PITCH_PIN, input_ROLL); // sync input_ROLL
+  // analogWrite(PWM_ROLL_PIN, input_THROTTLE); // sync
+  // analogWrite(PWM_THROTTLE_PIN, input_PITCH); // sync input_PITCH
+
+  // analogWrite(3, 255); //is good
+  // delay(5000);
+  // analogWrite(3, 0);
 
   // Send the values as comma-separated values to the Serial Monitor
   // Serial.print(value_YAW);
@@ -72,16 +82,21 @@ void loop() {
   // Serial.print(",");
   // Serial.print(value_ROLL);
   // Serial.print(",");
+  // Serial.println(value_THROTTLE);
+
+  Serial.print(input_YAW);
+  Serial.print(",");
+  Serial.print(input_PITCH);
+  Serial.print(",");
+  Serial.print(input_ROLL);
+  Serial.print(",");
   Serial.println(input_THROTTLE);
-  
-  // // Update the plot with the received value
-  // int value_YAW = map(input_YAW, 1001, 2003, 0, 1023); // Map the input value to fit within the Serial Plotter range
 
-  // // Send the value to the Serial Monitor
-  // Serial.println(value_YAW);
-
-  // Wait for a short delay
-  delay(500);
+  analogWrite(3, value_YAW);
+  analogWrite(4, value_PITCH);
+  analogWrite(5, value_ROLL);
+  analogWrite(6, value_THROTTLE);
+  Timer1.pwm(6, value_THROTTLE); // Set the PWM duty cycle
 }
 
 
