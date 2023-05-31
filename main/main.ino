@@ -161,7 +161,7 @@ ISR(PCINT0_vect){
 
   // Feedback input
   ///////////////////////////////////////Channel 6
-  if(PINB & B01000000){  // pin D6 - B01000000
+  if(PIND & B01000000){  // pin D6 - B01000000
     if(last_CH6_state == 0){
       last_CH6_state = 1;
       counter_6 = current_count;
@@ -173,7 +173,7 @@ ISR(PCINT0_vect){
   }
 
   ///////////////////////////////////////Channel 5
-  if(PINB & B00100000){  // pin D5 - B00100000
+  if(PIND & B00100000){  // pin D5 - B00100000
     if(last_CH5_state == 0){
       last_CH5_state = 1;
       counter_5 = current_count;
