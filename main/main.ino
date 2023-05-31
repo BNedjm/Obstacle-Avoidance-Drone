@@ -24,8 +24,8 @@ void setup() {
   PCMSK0 |= (1 << PCINT0);  //Set pin D8 trigger an interrupt on state change.                                               
   PCMSK0 |= (1 << PCINT4);  //Set pin D12 trigger an interrupt on state change. 
    
-  Serial.begin(9600);  
-  while (!Serial); 
+  // Serial.begin(9600);  
+  // while (!Serial); 
 }
 
 void loop() {
