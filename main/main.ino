@@ -24,8 +24,28 @@ void setup() {
   PCMSK0 |= (1 << PCINT0);  //Set pin D8 trigger an interrupt on state change.                                               
   PCMSK0 |= (1 << PCINT4);  //Set pin D12 trigger an interrupt on state change. 
    
-  // Serial.begin(9600);  
-  // while (!Serial); 
+  Serial.begin(9600);  
+  while (!Serial); 
+
+  //50Hz signal generation
+
+  // Configure Timer/Counter1 (TC1)
+  TCCR1A = 0; // Clear TCCR1A register
+  TCCR1B = 0; // Clear TCCR1B register
+
+  // Set PWM mode, non-inverted output on pin 9
+  TCCR1A |= (1 << COM1A1);
+  TCCR1B |= (1 << WGM13) | (1 << WGM12);
+
+  // Set prescaler to 64 for desired frequency adjustment
+  TCCR1B |= (1 << CS11) | (1 << CS10);
+
+  // Set ICR1 register to adjust the frequency (16MHz / (N * ICR1))
+  ICR1 = 624; // Adjust this value for the desired frequency (50Hz)
+
+  // Enable Timer/Counter1 (TC1)
+  TCCR1B |= (1 << CS11) | (1 << CS10);
+
 }
 
 void loop() {
@@ -38,12 +58,16 @@ void loop() {
   int value_THROTTLE = map(input_THROTTLE, 0, 2000, 0, resolution - 1);
 
 
-  // Serial.print(input_PITCH);
-  // Serial.print(",");
-  // Serial.println(input_THROTTLE);
+  Serial.print(input_PITCH);
+  Serial.print(",");
+  Serial.println(input_THROTTLE);
   
-  analogWrite10Bit(PWM_PITCH_PIN, value_PITCH);
-  analogWrite10Bit(PWM_THROTTLE_PIN, value_THROTTLE);
+  // write the duty cycle
+  // analogWrite10Bit(PWM_PITCH_PIN, value_PITCH);
+  // analogWrite10Bit(PWM_THROTTLE_PIN, value_THROTTLE);
+
+  // Set OCR1A register to adjust the duty cycle (0 to ICR1)
+  OCR1A = 312; // Adjust this value for the desired duty cycle (50%)
 
 }
 
