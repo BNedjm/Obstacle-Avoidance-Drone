@@ -34,13 +34,23 @@ void setup() {
   PCMSK0 |= (1 << PCINT1);  //Set pin D9 trigger an interrupt on state change.                                             
   PCMSK0 |= (1 << PCINT2);  //Set pin D10 trigger an interrupt on state change.                                               
   PCMSK0 |= (1 << PCINT4);  //Set pin D12 trigger an interrupt on state change.  
-                                                 
-  // pinMode(PWM_YAW_PIN, OUTPUT);                     
-  pinMode(3, OUTPUT);
-  pinMode(2, INPUT);
   
-  Timer1.initialize(20000); // Set the period to 20,000 microseconds (50Hz)
+  // Timer1.initialize(2000); // Set the period to 20,000 microseconds (50Hz)
 
+  pinMode(PWM_ROLL_PIN, OUTPUT);
+
+  // Set Timer/Counter1 to Fast PWM mode with OCRA top
+  TCCR1A = _BV(WGM11);
+  TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS10);
+
+  // Set OCRA value for desired frequency (50Hz)
+  // F_CPU = 16MHz, Prescaler (N) = 1
+  // OCRA = (F_CPU / (N * Frequency)) - 1
+  OCR1A = 31999; // For 50Hz frequency
+
+  // Set initial duty cycle to 50% (approximate)
+  analogWrite(PWM_ROLL_PIN, 0);
+  
   //Start the serial in order to see the result on the monitor
   //Remember to select the same baud rate on the serial monitor
   Serial.begin(9600);  
@@ -64,7 +74,9 @@ void loop() {
   int value_ROLL = map(input_ROLL, 1000, 2003, 0, 255);
   // int value_THROTTLE = map(input_THROTTLE, 1000, 2003, 0, 255);
   // int value_THROTTLE = map(input_THROTTLE, 0, 2003, 0, 255);
-  int value_THROTTLE = map(input_THROTTLE, 0, 2003, 0, 100);
+  // int value_THROTTLE = map(input_THROTTLE, 1000, 2000, 0, 1023);
+
+
   // Output the mapped values to PWM pins
   // analogWrite(PWM_YAW_PIN, input_YAW); //is good
   // analogWrite(PWM_PITCH_PIN, input_ROLL); // sync input_ROLL
@@ -92,11 +104,15 @@ void loop() {
   Serial.print(",");
   Serial.println(input_THROTTLE);
 
+  Serial.print(input_THROTTLE);
+  Serial.print(",");
+  Serial.println(value_THROTTLE);
+  
   analogWrite(3, value_YAW);
   analogWrite(4, value_PITCH);
   analogWrite(5, value_ROLL);
   analogWrite(6, value_THROTTLE);
-  Timer1.pwm(6, value_THROTTLE); // Set the PWM duty cycle
+  // Timer1.pwm(6, 1023); // Set the PWM duty cycle
 }
 
 
