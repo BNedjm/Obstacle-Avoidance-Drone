@@ -61,12 +61,15 @@ void loop() {
   int value_THROTTLE = map(input_THROTTLE, 0, 2000, 0, resolution - 1);
   // Map the feedback input values to fit within the Serial Plotter range
   int feedback_value_PITCH = map(feedback_PITCH, 0, 2000, 0, resolution - 1);
-  int feedback_value_THROTTLE = map(feedback_THROTTLE, 0, 2000, 0, resolution - 1);
+  int feedback_value_THROTTLE = map(feedback_THROTTLE, 0, 20000, 0, resolution - 1);
 
   
   // write the duty cycle
   analogWrite10Bit(PWM_PITCH_PIN, value_PITCH);
   analogWrite10Bit(PWM_THROTTLE_PIN, value_THROTTLE);
+  
+  // int dutyCycle = map(input_THROTTLE, 0, 2000, 0, 100);
+  // simulatePWM(PWM_THROTTLE_PIN, dutyCycle, 40);
 
   // Check if it's time for a new measurement
   unsigned long currentTime = millis();
@@ -118,6 +121,24 @@ long getDistance(int trigPin, int echoPin) {
   return distance;
 }
 
+
+// writing pwm using digitalwrite
+
+void simulatePWM(int pin, int dutyCycle, int frequency) {
+  int period = 1000000 / frequency;     // Calculate the period in microseconds
+  int onTime = (dutyCycle * period) / 100;  // Map the duty cycle to the range of 0 to period
+
+  unsigned long startTime = micros();   // Record the start time
+  while (micros() - startTime < period) {
+    if (micros() - startTime < onTime) {
+      digitalWrite(pin, HIGH);    // Set the pin HIGH during the on time
+    } else {
+      digitalWrite(pin, LOW);     // Set the pin LOW during the off time
+    }
+  }
+}
+
+
 // Custom 10-bit PWM function
 
 void analogWrite10Bit(int pin, int value) {
@@ -134,54 +155,53 @@ void analogWrite10Bit(int pin, int value) {
 ISR(PCINT0_vect){
 
   current_count = micros();
-  ///////////////////////////////////////Channel 2
-  if(PINB & B00000001){                                //pin D8  -- B00000001
-    if(last_CH2_state == 0){                                               
-      last_CH2_state = 1;                                                   
-      counter_2 = current_count;                                             
+  
+  // Channel 2 (PITCH input)
+  if(PINB & B00000001) {  // Pin D8 - B00000001
+    if(last_CH2_state == 0) {
+      last_CH2_state = 1;
+      counter_2 = current_count;
     }
   }
-  else if(last_CH2_state == 1){                                           
-    last_CH2_state = 0;                                                     
-    input_PITCH = current_count - counter_2;                             
+  else if(last_CH2_state == 1) {
+    last_CH2_state = 0;
+    input_PITCH = current_count - counter_2;
   }
 
-  ///////////////////////////////////////Channel 3
-  if(PINB & B00010000 ){   
-    if(last_CH3_state == 0){                            //pin D12  -- B00010000    //   if(last_CH3_state == 0){                                             
-      last_CH3_state = 1;                                                  
-      counter_3 = current_count;                                               
+  // Channel 3 (THROTTLE input)
+  if(PINB & B00010000) {  // Pin D12 - B00010000
+    if(last_CH3_state == 0) {
+      last_CH3_state = 1;
+      counter_3 = current_count;
     }
   }
-  else if(last_CH3_state == 1){                                             
-    last_CH3_state = 0;                                                    
-    input_THROTTLE = current_count - counter_3;                            
-
+  else if(last_CH3_state == 1) {
+    last_CH3_state = 0;
+    input_THROTTLE = current_count - counter_3;
   }
 
   // Feedback input
-  ///////////////////////////////////////Channel 6
-  if(PIND & B01000000){  // pin D6 - B01000000
-    if(last_CH6_state == 0){
+  // Channel 6 (feedback THROTTLE input)
+  if(PIND & B01000000) {  // Pin D6 - B01000000
+    if(last_CH6_state == 0) {
       last_CH6_state = 1;
       counter_6 = current_count;
     }
   }
-  else if(last_CH6_state == 1){
+  else if(last_CH6_state == 1) {
     last_CH6_state = 0;
     feedback_THROTTLE = current_count - counter_6;
   }
 
-  ///////////////////////////////////////Channel 5
-  if(PIND & B00100000){  // pin D5 - B00100000
-    if(last_CH5_state == 0){
+  // Channel 5 (feedback PITCH input)
+  if(PIND & B00100000) {  // Pin D5 - B00100000
+    if(last_CH5_state == 0) {
       last_CH5_state = 1;
       counter_5 = current_count;
     }
   }
-  else if(last_CH5_state == 1){
+  else if(last_CH5_state == 1) {
     last_CH5_state = 0;
     feedback_PITCH = current_count - counter_5;
   }
-
 }
