@@ -1,4 +1,4 @@
-#include <TimerOne.h>
+// #include <TimerOne.h>
 
 //We create variables for the time width values of each PWM input signal
 unsigned long counter_1, counter_2, counter_3, counter_4, current_count;
@@ -15,44 +15,24 @@ int input_THROTTLE; //In my case channel 3 of the receiver and pin D10 of arduin
 // Define the PWM output pins
 const int PWM_YAW_PIN = 3;      // Pin for YAW output
 const int PWM_PITCH_PIN = 5;    // Pin for PITCH output
-const int PWM_ROLL_PIN = 6;     // Pin for ROLL output
+// const int PWM_ROLL_PIN = 6;     // Pin for ROLL output
+const int PWM_ROLL_PIN = 9;     // Pin for ROLL output
 const int PWM_THROTTLE_PIN = 11; // Pin for THROTTLE output
+const int resolution = 1024;
+
 
 void setup() {
-  /*
-   * Port registers allow for lower-level and faster manipulation of the i/o pins of the microcontroller on an Arduino board. 
-   * The chips used on the Arduino board (the ATmega8 and ATmega168) have three ports:
-     -B (digital pin 8 to 13)
-     -C (analog input pins)
-     -D (digital pins 0 to 7)
-   
-  //All Arduino (Atmega) digital pins are inputs when you begin...
-  */  
-   
+  pinMode(PWM_ROLL_PIN, OUTPUT);
+  // Timer1.initialize(20000);
+  // Timer1.start();
+
+  // Timer1.pwm(PWM_ROLL_PIN, 0);
   PCICR |= (1 << PCIE0);    //enable PCMSK0 scan                                                 
   PCMSK0 |= (1 << PCINT0);  //Set pin D8 trigger an interrupt on state change. 
-  PCMSK0 |= (1 << PCINT1);  //Set pin D9 trigger an interrupt on state change.                                             
+  // PCMSK0 |= (1 << PCINT1);  //Set pin D9 trigger an interrupt on state change.                                             
   PCMSK0 |= (1 << PCINT2);  //Set pin D10 trigger an interrupt on state change.                                               
-  PCMSK0 |= (1 << PCINT4);  //Set pin D12 trigger an interrupt on state change.  
-  
-  // Timer1.initialize(2000); // Set the period to 20,000 microseconds (50Hz)
-
-  pinMode(PWM_ROLL_PIN, OUTPUT);
-
-  // Set Timer/Counter1 to Fast PWM mode with OCRA top
-  TCCR1A = _BV(WGM11);
-  TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS10);
-
-  // Set OCRA value for desired frequency (50Hz)
-  // F_CPU = 16MHz, Prescaler (N) = 1
-  // OCRA = (F_CPU / (N * Frequency)) - 1
-  OCR1A = 31999; // For 50Hz frequency
-
-  // Set initial duty cycle to 50% (approximate)
-  analogWrite(PWM_ROLL_PIN, 0);
-  
-  //Start the serial in order to see the result on the monitor
-  //Remember to select the same baud rate on the serial monitor
+  PCMSK0 |= (1 << PCINT4);  //Set pin D12 trigger an interrupt on state change. 
+   
   Serial.begin(9600);  
   while (!Serial); 
 }
@@ -74,27 +54,7 @@ void loop() {
   int value_ROLL = map(input_ROLL, 1000, 2003, 0, 255);
   // int value_THROTTLE = map(input_THROTTLE, 1000, 2003, 0, 255);
   // int value_THROTTLE = map(input_THROTTLE, 0, 2003, 0, 255);
-  // int value_THROTTLE = map(input_THROTTLE, 1000, 2000, 0, 1023);
-
-
-  // Output the mapped values to PWM pins
-  // analogWrite(PWM_YAW_PIN, input_YAW); //is good
-  // analogWrite(PWM_PITCH_PIN, input_ROLL); // sync input_ROLL
-  // analogWrite(PWM_ROLL_PIN, input_THROTTLE); // sync
-  // analogWrite(PWM_THROTTLE_PIN, input_PITCH); // sync input_PITCH
-
-  // analogWrite(3, 255); //is good
-  // delay(5000);
-  // analogWrite(3, 0);
-
-  // Send the values as comma-separated values to the Serial Monitor
-  // Serial.print(value_YAW);
-  // Serial.print(",");
-  // Serial.print(value_PITCH);
-  // Serial.print(",");
-  // Serial.print(value_ROLL);
-  // Serial.print(",");
-  // Serial.println(value_THROTTLE);
+  uint16_t value_THROTTLE = map(input_THROTTLE, 0, 2000, 0, 1023);
 
   Serial.print(input_YAW);
   Serial.print(",");
@@ -111,12 +71,21 @@ void loop() {
   analogWrite(3, value_YAW);
   analogWrite(4, value_PITCH);
   analogWrite(5, value_ROLL);
-  analogWrite(6, value_THROTTLE);
-  // Timer1.pwm(6, 1023); // Set the PWM duty cycle
+  // analogWrite(6, value_THROTTLE);
+  // Timer1.setPwmDuty(PWM_ROLL_PIN, value_THROTTLE); // Set the PWM duty cycle
+  analogWrite10Bit(PWM_ROLL_PIN, value_THROTTLE);
+
 }
 
 
 
+// Custom 10-bit PWM function
+void analogWrite10Bit(int pin, int value) {
+  if (value < 1000) value = 1000;
+  if (value > resolution - 1) value = resolution - 1;
+  uint16_t dutyCycle = map(value, 0, resolution - 1, 0, 255);
+  analogWrite(pin, dutyCycle);
+}
 
 //This is the interruption routine
 //----------------------------------------------
