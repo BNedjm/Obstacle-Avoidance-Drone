@@ -13,12 +13,23 @@ int input_THROTTLE; //In my case channel 3 of the receiver and pin D12 of arduin
 const int PWM_PITCH_PIN = 9;    // Pin for PITCH output
 const int PWM_THROTTLE_PIN = 10; // Pin for THROTTLE output
 const int resolution = 1024;
+// Ultrasonic sensor pins
+const int trigPin = 2;
+const int echoPin = 3;
 
+// Timing variables
+unsigned long previousTime = 0;
+const unsigned long interval = 1000; // Measurement interval in milliseconds
 
 void setup() {
 
+  // Define PWM pins as output
   pinMode(PWM_PITCH_PIN, OUTPUT);
   pinMode(PWM_THROTTLE_PIN, OUTPUT);
+
+  // Define ultrasonic sensor pins as input/output
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
   
   PCICR |= (1 << PCIE0);    //enable PCMSK0 scan                                                 
   PCMSK0 |= (1 << PCINT0);  //Set pin D8 trigger an interrupt on state change.                                               
@@ -26,25 +37,6 @@ void setup() {
    
   Serial.begin(9600);  
   while (!Serial); 
-
-  //50Hz signal generation
-
-  // Configure Timer/Counter1 (TC1)
-  TCCR1A = 0; // Clear TCCR1A register
-  TCCR1B = 0; // Clear TCCR1B register
-
-  // Set PWM mode, non-inverted output on pin 9
-  TCCR1A |= (1 << COM1A1);
-  TCCR1B |= (1 << WGM13) | (1 << WGM12);
-
-  // Set prescaler to 64 for desired frequency adjustment
-  TCCR1B |= (1 << CS11) | (1 << CS10);
-
-  // Set ICR1 register to adjust the frequency (16MHz / (N * ICR1))
-  ICR1 = 624; // Adjust this value for the desired frequency (50Hz)
-
-  // Enable Timer/Counter1 (TC1)
-  TCCR1B |= (1 << CS11) | (1 << CS10);
 
 }
 
@@ -58,20 +50,49 @@ void loop() {
   int value_THROTTLE = map(input_THROTTLE, 0, 2000, 0, resolution - 1);
 
 
-  Serial.print(input_PITCH);
-  Serial.print(",");
-  Serial.println(input_THROTTLE);
+  // Serial.print(input_PITCH);
+  // Serial.print(",");
+  // Serial.println(input_THROTTLE);
   
   // write the duty cycle
-  // analogWrite10Bit(PWM_PITCH_PIN, value_PITCH);
-  // analogWrite10Bit(PWM_THROTTLE_PIN, value_THROTTLE);
+  analogWrite10Bit(PWM_PITCH_PIN, value_PITCH);
+  analogWrite10Bit(PWM_THROTTLE_PIN, value_THROTTLE);
 
-  // Set OCR1A register to adjust the duty cycle (0 to ICR1)
-  OCR1A = 312; // Adjust this value for the desired duty cycle (50%)
+  // Check if it's time for a new measurement
+  unsigned long currentTime = millis();
+  if (currentTime - previousTime >= interval) {
+    // Call the function to get the distance measurement
+    long distance = getDistance(trigPin, echoPin);
+
+    // Print the distance to the Serial Monitor
+    Serial.print("Distance: ");
+    Serial.print(distance);
+    Serial.println(" cm");
+
+    // Update the previous time to the current time
+    previousTime = currentTime;
+  }
 
 }
 
+// UltraSonic distance function 
 
+long getDistance(int trigPin, int echoPin) {
+  // Send a short pulse to trigger the ultrasonic sensor
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  // Measure the duration of the echo pulse
+  long duration = pulseIn(echoPin, HIGH);
+
+  // Calculate the distance in centimeters
+  long distance = duration * 0.034 / 2;
+
+  return distance;
+}
 
 // Custom 10-bit PWM function
 
@@ -81,6 +102,7 @@ void analogWrite10Bit(int pin, int value) {
   uint16_t dutyCycle = map(value, 0, resolution - 1, 0, 255);
   analogWrite(pin, dutyCycle);
 }
+
 
 //This is the interruption routine
 //----------------------------------------------
