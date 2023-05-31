@@ -34,15 +34,15 @@ void loop() {
   input_THROTTLE;
 
   // Map the input values to fit within the Serial Plotter range
-  uint16_t value_PITCH = map(input_PITCH, 0, 2000, 0, 1023);
-  uint16_t value_THROTTLE = map(input_THROTTLE, 0, 2000, 0, 1023);
+  int value_PITCH = map(input_PITCH, 0, 2000, 0, resolution - 1);
+  int value_THROTTLE = map(input_THROTTLE, 0, 2000, 0, resolution - 1);
 
 
-  Serial.print(input_PITCH);
-  Serial.print(",");
-  Serial.println(input_THROTTLE);
+  // Serial.print(input_PITCH);
+  // Serial.print(",");
+  // Serial.println(input_THROTTLE);
   
-  analogWrite10Bit(PWM_PITCH_PIN, value_THROTTLE);
+  analogWrite10Bit(PWM_PITCH_PIN, value_PITCH);
   analogWrite10Bit(PWM_THROTTLE_PIN, value_THROTTLE);
 
 }
@@ -52,7 +52,7 @@ void loop() {
 // Custom 10-bit PWM function
 
 void analogWrite10Bit(int pin, int value) {
-  if (value < 1000) value = 1000;
+  if (value < 0) value = 0;
   if (value > resolution - 1) value = resolution - 1;
   uint16_t dutyCycle = map(value, 0, resolution - 1, 0, 255);
   analogWrite(pin, dutyCycle);
@@ -89,4 +89,3 @@ ISR(PCINT0_vect){
 
   }
 }
-
