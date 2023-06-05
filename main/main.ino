@@ -1,30 +1,32 @@
 #include "TimerOne.h"
+#include <Servo.h>
 
-// We create variables for the time width values of each PWM input signal
-unsigned long counter_2, counter_3, current_count;
-unsigned long counter_6, counter_5;
+// Customize here pulse lengths as needed
+#define MIN_PULSE_LENGTH 1000 // Minimum pulse length in µs
+#define MAX_PULSE_LENGTH 2000 
+#define MOD_PULSE_LENGTH 1500 // Maximum pulse length in µs
 
-// We create 2 variables to stopre the previous value of the input signal (if LOW or HIGH)
-byte last_CH2_state, last_CH3_state;
-byte last_CH6_state, last_CH5_state;
+//We create variables for the time width values of each PWM input signal
+unsigned long counter_1, counter_2, counter_3, counter_4, current_count;
 
-// To store the 1000us to 2000us value we create variables and store each channel
-int input_PITCH;    //In my case channel 2 of the receiver and pin D8 of arduino
-int input_THROTTLE; //In my case channel 3 of the receiver and pin D12 of arduino
-// Feedback variables
-int feedback_PITCH;
-int feedback_THROTTLE;
+//We create 4 variables to stopre the previous value of the input signal (if LOW or HIGH)
+byte last_CH1_state, last_CH2_state, last_CH3_state, last_CH4_state;
 
-// Define the PWM output pins
-const int PWM_PITCH_PIN = 9;    // Pin for PITCH output
-const int PWM_THROTTLE_PIN = 10; // Pin for THROTTLE output
-const int frequency = 50; // 50 Hz
-const int tx_resolution = 1024;
-const int rx_resolution = calculatePeriod(frequency); // Max pulse length during one period, which equals to one period
+//To store the 1000us to 2000us value we create variables and store each channel
+int input_YAW;      //In my case channel 4 of the receiver and pin D12 of arduino
+int input_PITCH;    //In my case channel 2 of the receiver and pin D9 of arduino
+int input_ROLL;     //In my case channel 1 of the receiver and pin D8 of arduino
+int input_THROTTLE; //In my case channel 3 of the receiver and pin D10 of arduino
+
+// Control signals
+Servo output_YAW;      //In my case channel 4 of the receiver and pin D6 of arduino
+Servo output_PITCH;    //In my case channel 2 of the receiver and pin D3 of arduino
+Servo output_ROLL;     //In my case channel 1 of the receiver and pin D2 of arduino
+Servo output_THROTTLE; //In my case channel 3 of the receiver and pin D5 of arduino
 
 // Ultrasonic sensor pins
-const int trigPin = 2;
-const int echoPin = 3;
+const int trigPin = 4;
+const int echoPin = 7;
 
 // Timing variables
 unsigned long previousTime = 0;
@@ -32,24 +34,30 @@ const unsigned long interval = 1000; // Measurement interval in milliseconds
 
 void setup() {
 
-  // Define PWM pins as output
-  pinMode(PWM_PITCH_PIN, OUTPUT);
-  pinMode(PWM_THROTTLE_PIN, OUTPUT);
+  /*
+   * Port registers allow for lower-level and faster manipulation of the i/o pins of the microcontroller on an Arduino board. 
+   * The chips used on the Arduino board (the ATmega8 and ATmega168) have three ports:
+     -B (digital pin 8 to 13)
+     -C (analog input pins)
+     -D (digital pins 0 to 7)
+   
+  //All Arduino (Atmega) digital pins are inputs when you begin...
+  */  
+   
+  PCICR |= (1 << PCIE0);    //enable PCMSK0 scan                                                 
+  PCMSK0 |= (1 << PCINT0);  //Set pin D8 trigger an interrupt on state change. 
+  PCMSK0 |= (1 << PCINT1);  //Set pin D9 trigger an interrupt on state change.                                             
+  PCMSK0 |= (1 << PCINT2);  //Set pin D10 trigger an interrupt on state change.                                               
+  PCMSK0 |= (1 << PCINT4);  //Set pin D12 trigger an interrupt on state change.  
+
+  output_YAW.attach(6); 
+  output_PITCH.attach(3);
+  output_ROLL.attach(2);
+  output_THROTTLE.attach(5);
 
   // Define ultrasonic sensor pins as input/output
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
-  
-  PCICR |= (1 << PCIE0);    // Enable PCMSK0 scan                                                 
-  PCMSK0 |= (1 << PCINT0);  // Set pin D8 trigger an interrupt on state change.
-  PCMSK0 |= (1 << PCINT4);  // Set pin D12 trigger an interrupt on state change.
-  PCMSK0 |= (1 << PCINT5);  // Set pin D5 trigger an interrupt on state change.
-  PCMSK0 |= (1 << PCINT6);  // Set pin D6 trigger an interrupt on state change.
-  
-  // TimerOne settings
-  Timer1.initialize(calculatePeriod(frequency));         // Initialize timer1 to 50Hz
-  Timer1.pwm(PWM_PITCH_PIN, 1); 
-  Timer1.pwm(PWM_THROTTLE_PIN, 1); 
 
   // Serial settings
   Serial.begin(9600);  
@@ -59,21 +67,21 @@ void setup() {
 
 void loop() {
 
-  input_PITCH;
-  input_THROTTLE;
-  feedback_PITCH;
-  feedback_THROTTLE;
+  /*
+   * Ok, so in the loop the only thing that we do in this example is to print
+   * the received values on the Serial monitor. The PWM values are read in the ISR below.
+   */ 
 
-  // Map the input values to fit within the Serial Plotter range
-  int value_PITCH = map(input_PITCH, 0, rx_resolution , 0, tx_resolution - 1);
-  int value_THROTTLE = map(input_THROTTLE, 0, rx_resolution, 0, tx_resolution - 1);
-  // Map the feedback input values to fit within the Serial Plotter range
-  int feedback_value_PITCH = map(feedback_PITCH, 0, tx_resolution - 1, 0, rx_resolution);
-  int feedback_value_THROTTLE = map(feedback_THROTTLE, 0, tx_resolution - 1, 0, rx_resolution);
-  
-  // Write the duty cycle
-  Timer1.setPwmDuty(PWM_PITCH_PIN, value_PITCH);
-  Timer1.setPwmDuty(PWM_THROTTLE_PIN, value_THROTTLE);
+  input_YAW;
+  input_PITCH;
+  input_ROLL;
+  input_THROTTLE;
+
+  // Update the plots with the received values
+  output_YAW.writeMicroseconds(input_YAW); 
+  output_PITCH.writeMicroseconds(input_PITCH);
+  output_ROLL.writeMicroseconds(input_ROLL);
+  output_THROTTLE.writeMicroseconds(input_THROTTLE);
 
   // Check if it's time for a new measurement
   unsigned long currentTime = millis();
@@ -89,22 +97,11 @@ void loop() {
     // More Serial coms
     Serial.print("THROTTLE: ");
     Serial.print(input_THROTTLE);
-    Serial.print(" MAPPED TO ");
-    Serial.print(value_THROTTLE);
-    Serial.print(" IN-->OUT ");
-    Serial.print(feedback_THROTTLE);
-    Serial.print(" Gives ");
-    Serial.print(feedback_value_THROTTLE);
     Serial.print(" || ");
 
     Serial.print("PITCH: ");
     Serial.print(input_PITCH);
-    Serial.print(" MAPPED TO ");
-    Serial.print(value_PITCH);
-    Serial.print(" IN-->OUT ");
-    Serial.print(feedback_PITCH);
-    Serial.print(" Gives ");
-    Serial.println(feedback_value_PITCH);
+    Serial.println(" || ");
 
     // Update the previous time to the current time
     previousTime = currentTime;
@@ -112,11 +109,6 @@ void loop() {
 
 }
 
-// Convert frequency to period in microseconds
-
-long calculatePeriod(int frequency) {
-  return 1000000 / frequency;
-}
 
 // UltraSonic distance function 
 
@@ -137,58 +129,59 @@ long getDistance(int trigPin, int echoPin) {
   return distance;
 }
 
-// This is the interruption routine
+//This is the interruption routine
+//----------------------------------------------
 
 ISR(PCINT0_vect){
-
-  current_count = micros();
   
-  // Channel 2 (PITCH input)
-  if(PINB & B00000001) {  // Pin D8 - B00000001
-    if(last_CH2_state == 0) {
-      last_CH2_state = 1;
-      counter_2 = current_count;
+  current_count = micros();
+  ///////////////////////////////////////Channel 1
+  if(PINB & B00000001){                              //We make an AND with the pin state register, We verify if pin 8 is HIGH???
+    if(last_CH1_state == 0){                         //If the last state was 0, then we have a state change...
+      last_CH1_state = 1;                            //Store the current state into the last state for the next loop
+      counter_1 = current_count;                     //Set counter_1 to current value.
     }
   }
-  else if(last_CH2_state == 1) {
-    last_CH2_state = 0;
-    input_PITCH = current_count - counter_2;
+  else if(last_CH1_state == 1){                      //If pin 8 is LOW and the last state was HIGH then we have a state change      
+    last_CH1_state = 0;                              //Store the current state into the last state for the next loop
+    input_ROLL = current_count - counter_1;   //We make the time difference. Channel 1 is current_time - timer_1.
   }
 
-  // Channel 3 (THROTTLE input)
-  if(PINB & B00010000) {  // Pin D12 - B00010000
-    if(last_CH3_state == 0) {
-      last_CH3_state = 1;
-      counter_3 = current_count;
+  ///////////////////////////////////////Channel 2
+  if(PINB & B00000010 ){                             //pin D9 -- B00000010                                              
+    if(last_CH2_state == 0){                                               
+      last_CH2_state = 1;                                                   
+      counter_2 = current_count;                                             
     }
   }
-  else if(last_CH3_state == 1) {
-    last_CH3_state = 0;
-    input_THROTTLE = current_count - counter_3;
+  else if(last_CH2_state == 1){                                           
+    last_CH2_state = 0;                                                     
+    input_PITCH = current_count - counter_2;                             
   }
 
-  // Feedback input
-  // Channel 6 (feedback THROTTLE input)
-  if(PIND & B01000000) {  // Pin D6 - B01000000
-    if(last_CH6_state == 0) {
-      last_CH6_state = 1;
-      counter_6 = current_count;
+  ///////////////////////////////////////Channel 3
+  if(PINB & B00000100 ){                             //pin D10 - B00000100                                         
+    if(last_CH3_state == 0){                                             
+      last_CH3_state = 1;                                                  
+      counter_3 = current_count;                                               
     }
   }
-  else if(last_CH6_state == 1) {
-    last_CH6_state = 0;
-    feedback_THROTTLE = current_count - counter_6;
-  }
+  else if(last_CH3_state == 1){                                             
+    last_CH3_state = 0;                                                    
+    input_THROTTLE = current_count - counter_3;                            
 
-  // Channel 5 (feedback PITCH input)
-  if(PIND & B00100000) {  // Pin D5 - B00100000
-    if(last_CH5_state == 0) {
-      last_CH5_state = 1;
-      counter_5 = current_count;
+  }
+  
+  ///////////////////////////////////////Channel 4
+  if(PINB & B00010000 ){                             //pin D12  -- B00010000                      
+    if(last_CH4_state == 0){                                               
+      last_CH4_state = 1;                                                   
+      counter_4 = current_count;                                              
     }
   }
-  else if(last_CH5_state == 1) {
-    last_CH5_state = 0;
-    feedback_PITCH = current_count - counter_5;
+  else if(last_CH4_state == 1){                                             
+    last_CH4_state = 0;                                                  
+    input_YAW = current_count - counter_4;                            
   }
+ 
 }
