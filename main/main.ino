@@ -1,28 +1,25 @@
 #include "TimerOne.h"
 
-//We create variables for the time width values of each PWM input signal
+// We create variables for the time width values of each PWM input signal
 unsigned long counter_2, counter_3, current_count;
 unsigned long counter_6, counter_5;
 
-//We create 2 variables to stopre the previous value of the input signal (if LOW or HIGH)
+// We create 2 variables to stopre the previous value of the input signal (if LOW or HIGH)
 byte last_CH2_state, last_CH3_state;
 byte last_CH6_state, last_CH5_state;
 
-//To store the 1000us to 2000us value we create variables and store each channel
+// To store the 1000us to 2000us value we create variables and store each channel
 int input_PITCH;    //In my case channel 2 of the receiver and pin D8 of arduino
 int input_THROTTLE; //In my case channel 3 of the receiver and pin D12 of arduino
 // Feedback variables
 int feedback_PITCH;
 int feedback_THROTTLE;
 
-int dutyCycle = 10;
-
-
 // Define the PWM output pins
 const int PWM_PITCH_PIN = 9;    // Pin for PITCH output
 const int PWM_THROTTLE_PIN = 10; // Pin for THROTTLE output
-const int resolution = 1024;
-// const int resolution = 2048;
+const int tx_resolution = 1024;
+const int rx_resolution = 2048 * 10;
 
 // Ultrasonic sensor pins
 const int trigPin = 2;
@@ -42,32 +39,21 @@ void setup() {
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
   
-  PCICR |= (1 << PCIE0);    //enable PCMSK0 scan                                                 
+  PCICR |= (1 << PCIE0);    // Enable PCMSK0 scan                                                 
   PCMSK0 |= (1 << PCINT0);  // Set pin D8 trigger an interrupt on state change.
   PCMSK0 |= (1 << PCINT4);  // Set pin D12 trigger an interrupt on state change.
   PCMSK0 |= (1 << PCINT5);  // Set pin D5 trigger an interrupt on state change.
   PCMSK0 |= (1 << PCINT6);  // Set pin D6 trigger an interrupt on state change.
-
-  // Timer1.initialize(20000);  // Set PWM frequency to 50Hz (20ms period)
-  // Timer1.pwm(PWM_THROTTLE_PIN, 10);
-  // Timer1.attachInterrupt(callback);  // attaches callback() as a timer overflow interrupt
-  Timer1.initialize(calculatePeriod(pwmFrequency));
-  Timer1.pwm(PWM_THROTTLE_PIN, 10);
-  Timer1.attachInterrupt(pwmGeneration);
   
+  // TimerOne settings
+  Timer1.initialize(calculatePeriod(50));         // Initialize timer1 50Hz
+  Timer1.pwm(PWM_PITCH_PIN, 1); 
+  Timer1.pwm(PWM_THROTTLE_PIN, 1); 
+
+  // Serial settings
   Serial.begin(9600);  
   while (!Serial); 
 
-}
-
-// void callback()
-// {
-//   digitalWrite(PWM_THROTTLE_PIN, digitalRead(10) ^ 1);
-// }
-
-void callback() {
-  int dutyValue = map(dutyCycle, 0, 100, 0, 65535);
-  Timer1.setPwmDuty(PWM_THROTTLE_PIN, dutyValue);
 }
 
 void loop() {
@@ -77,26 +63,16 @@ void loop() {
   feedback_PITCH;
   feedback_THROTTLE;
 
-
   // Map the input values to fit within the Serial Plotter range
-  int value_PITCH = map(input_PITCH, 0, 2047, 0, resolution - 1);
-  int value_THROTTLE = map(input_THROTTLE, 0, 2047, 0, resolution - 1);
+  int value_PITCH = map(input_PITCH, 0, rx_resolution , 0, tx_resolution - 1);
+  int value_THROTTLE = map(input_THROTTLE, 0, rx_resolution, 0, tx_resolution - 1);
   // Map the feedback input values to fit within the Serial Plotter range
-  // int feedback_value_PITCH = map(feedback_PITCH, 0, 2047, 0, resolution - 1); // 2047 -> 11bits
-  // int feedback_value_THROTTLE = map(feedback_THROTTLE, 0, 2047, 0, resolution - 1);
-
+  int feedback_value_PITCH = map(feedback_PITCH, 0, tx_resolution - 1, 0, rx_resolution);
+  int feedback_value_THROTTLE = map(feedback_THROTTLE, 0, tx_resolution - 1, 0, rx_resolution);
   
-  // write the duty cycle
-  // analogWrite10Bit(PWM_PITCH_PIN, value_PITCH);
-  // analogWrite10Bit(PWM_THROTTLE_PIN, value_THROTTLE);
-  
-  // analogWrite11Bit(PWM_PITCH_PIN, value_PITCH);
-  // analogWrite11Bit(PWM_THROTTLE_PIN, value_THROTTLE);  
-
-  
-  // Timer1.setPwmDuty(PWM_THROTTLE_PIN, value_THROTTLE);
-  // int dutyCycle = map(input_THROTTLE, 0, 2000, 0, 100);
-  // simulatePWM(PWM_THROTTLE_PIN, dutyCycle, 40);
+  // Write the duty cycle
+  Timer1.setPwmDuty(PWM_PITCH_PIN, value_PITCH);
+  Timer1.setPwmDuty(PWM_THROTTLE_PIN, value_THROTTLE);
 
   // Check if it's time for a new measurement
   unsigned long currentTime = millis();
@@ -107,23 +83,27 @@ void loop() {
     // Print the distance to the Serial Monitor
     Serial.print("Distance: ");
     Serial.print(distance);
-    Serial.println(" cm || ");
+    Serial.print(" cm || ");
 
     // More Serial coms
-    // Serial.print("THROTTLE: ");
-    // Serial.print(input_THROTTLE);
-    // Serial.print(" MAPPED TO ");
-    // Serial.print(value_THROTTLE);
-    // Serial.print(" IN-->OUT ");
-    // Serial.print(feedback_THROTTLE);
-    // Serial.print(" Gives ");
-    // Serial.println(feedback_THROTTLE);
-    // Serial.print(" || ");
+    Serial.print("THROTTLE: ");
+    Serial.print(input_THROTTLE);
+    Serial.print(" MAPPED TO ");
+    Serial.print(value_THROTTLE);
+    Serial.print(" IN-->OUT ");
+    Serial.print(feedback_THROTTLE);
+    Serial.print(" Gives ");
+    Serial.print(feedback_value_THROTTLE);
+    Serial.print(" || ");
 
-    // Serial.print("PITCH: ");
-    // Serial.print(input_PITCH);
-    // Serial.print(" IN-->OUT ");
-    // Serial.println(feedback_PITCH);
+    Serial.print("PITCH: ");
+    Serial.print(input_PITCH);
+    Serial.print(" MAPPED TO ");
+    Serial.print(value_PITCH);
+    Serial.print(" IN-->OUT ");
+    Serial.print(feedback_PITCH);
+    Serial.print(" Gives ");
+    Serial.println(feedback_value_PITCH);
 
     // Update the previous time to the current time
     previousTime = currentTime;
@@ -131,27 +111,10 @@ void loop() {
 
 }
 
-void pwmGeneration() {
-  static unsigned long previousMicros = 0;
-  static unsigned long currentMicros = 0;
-  static bool pwmState = false;
-
-  currentMicros = micros();
-  unsigned long period = calculatePeriod(pwmFrequency);
-  unsigned long onTime = (dutyCycle / 100.0) * period;
-
-  if (currentMicros - previousMicros >= period) {
-    previousMicros = currentMicros;
-    pwmState = false;
-  } else if (currentMicros - previousMicros >= onTime) {
-    pwmState = true;
-  }
-
-  digitalWrite(pwmPin, pwmState);
-}
+// Convert frequency to period in microseconds
 
 long calculatePeriod(int frequency) {
-  return 1000000 / frequency;  // Convert frequency to period in microseconds
+  return 1000000 / frequency;
 }
 
 // UltraSonic distance function 
@@ -173,46 +136,7 @@ long getDistance(int trigPin, int echoPin) {
   return distance;
 }
 
-
-// writing pwm using digitalwrite
-
-void simulatePWM(int pin, int dutyCycle, int frequency) {
-  int period = 1000000 / frequency;     // Calculate the period in microseconds
-  int onTime = (dutyCycle * period) / 100;  // Map the duty cycle to the range of 0 to period
-
-  unsigned long startTime = micros();   // Record the start time
-  while (micros() - startTime < period) {
-    if (micros() - startTime < onTime) {
-      digitalWrite(pin, HIGH);    // Set the pin HIGH during the on time
-    } else {
-      digitalWrite(pin, LOW);     // Set the pin LOW during the off time
-    }
-  }
-}
-
-
-// Custom 10-bit PWM function
-
-void analogWrite10Bit(int pin, int value) {
-  if (value < 0) value = 0;
-  if (value > resolution - 1) value = resolution - 1;
-  uint16_t dutyCycle = map(value, 0, resolution - 1, 0, 255);
-  analogWrite(pin, dutyCycle);
-}
-
-// Custom 11-bit PWM function
-
-void analogWrite11Bit(int pin, int value) {
-  if (value < 0) value = 0;
-  if (value > resolution - 1) value = resolution - 1;
-  uint16_t dutyCycle = map(value, 0, resolution - 1, 0, 255);
-  Serial.println(dutyCycle);
-  analogWrite(pin, dutyCycle);
-}
-
-
-//This is the interruption routine
-//----------------------------------------------
+// This is the interruption routine
 
 ISR(PCINT0_vect){
 
