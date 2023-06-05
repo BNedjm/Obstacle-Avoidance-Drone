@@ -18,8 +18,9 @@ int feedback_THROTTLE;
 // Define the PWM output pins
 const int PWM_PITCH_PIN = 9;    // Pin for PITCH output
 const int PWM_THROTTLE_PIN = 10; // Pin for THROTTLE output
+const int frequency = 50; // 50 Hz
 const int tx_resolution = 1024;
-const int rx_resolution = 2048 * 10;
+const int rx_resolution = calculatePeriod(frequency); // Max pulse length during one period, which equals to one period
 
 // Ultrasonic sensor pins
 const int trigPin = 2;
@@ -46,7 +47,7 @@ void setup() {
   PCMSK0 |= (1 << PCINT6);  // Set pin D6 trigger an interrupt on state change.
   
   // TimerOne settings
-  Timer1.initialize(calculatePeriod(50));         // Initialize timer1 50Hz
+  Timer1.initialize(calculatePeriod(frequency));         // Initialize timer1 to 50Hz
   Timer1.pwm(PWM_PITCH_PIN, 1); 
   Timer1.pwm(PWM_THROTTLE_PIN, 1); 
 
