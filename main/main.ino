@@ -15,11 +15,14 @@ int input_THROTTLE; //In my case channel 3 of the receiver and pin D12 of arduin
 int feedback_PITCH;
 int feedback_THROTTLE;
 
+int dutyCycle = 10;
+
+
 // Define the PWM output pins
 const int PWM_PITCH_PIN = 9;    // Pin for PITCH output
 const int PWM_THROTTLE_PIN = 10; // Pin for THROTTLE output
-// const int resolution = 1024;
-const int resolution = 2048;
+const int resolution = 1024;
+// const int resolution = 2048;
 
 // Ultrasonic sensor pins
 const int trigPin = 2;
@@ -45,18 +48,26 @@ void setup() {
   PCMSK0 |= (1 << PCINT5);  // Set pin D5 trigger an interrupt on state change.
   PCMSK0 |= (1 << PCINT6);  // Set pin D6 trigger an interrupt on state change.
 
-  Timer1.initialize(20000);  // Set PWM frequency to 50Hz (20ms period)
-  Timer1.pwm(PWM_THROTTLE_PIN, 1023);
-  Timer1.attachInterrupt(callback);  // attaches callback() as a timer overflow interrupt
-
+  // Timer1.initialize(20000);  // Set PWM frequency to 50Hz (20ms period)
+  // Timer1.pwm(PWM_THROTTLE_PIN, 10);
+  // Timer1.attachInterrupt(callback);  // attaches callback() as a timer overflow interrupt
+  Timer1.initialize(calculatePeriod(pwmFrequency));
+  Timer1.pwm(PWM_THROTTLE_PIN, 10);
+  Timer1.attachInterrupt(pwmGeneration);
+  
   Serial.begin(9600);  
   while (!Serial); 
 
 }
 
-void callback()
-{
-  digitalWrite(PWM_THROTTLE_PIN, digitalRead(10) ^ 1);
+// void callback()
+// {
+//   digitalWrite(PWM_THROTTLE_PIN, digitalRead(10) ^ 1);
+// }
+
+void callback() {
+  int dutyValue = map(dutyCycle, 0, 100, 0, 65535);
+  Timer1.setPwmDuty(PWM_THROTTLE_PIN, dutyValue);
 }
 
 void loop() {
@@ -71,8 +82,8 @@ void loop() {
   int value_PITCH = map(input_PITCH, 0, 2047, 0, resolution - 1);
   int value_THROTTLE = map(input_THROTTLE, 0, 2047, 0, resolution - 1);
   // Map the feedback input values to fit within the Serial Plotter range
-  int feedback_value_PITCH = map(feedback_PITCH, 0, 2047, 0, resolution - 1); // 2047 -> 11bits
-  int feedback_value_THROTTLE = map(feedback_THROTTLE, 0, 2047, 0, resolution - 1);
+  // int feedback_value_PITCH = map(feedback_PITCH, 0, 2047, 0, resolution - 1); // 2047 -> 11bits
+  // int feedback_value_THROTTLE = map(feedback_THROTTLE, 0, 2047, 0, resolution - 1);
 
   
   // write the duty cycle
@@ -82,6 +93,8 @@ void loop() {
   // analogWrite11Bit(PWM_PITCH_PIN, value_PITCH);
   // analogWrite11Bit(PWM_THROTTLE_PIN, value_THROTTLE);  
 
+  
+  // Timer1.setPwmDuty(PWM_THROTTLE_PIN, value_THROTTLE);
   // int dutyCycle = map(input_THROTTLE, 0, 2000, 0, 100);
   // simulatePWM(PWM_THROTTLE_PIN, dutyCycle, 40);
 
@@ -92,19 +105,19 @@ void loop() {
     long distance = getDistance(trigPin, echoPin);
 
     // Print the distance to the Serial Monitor
-    // Serial.print("Distance: ");
-    // Serial.print(distance);
-    // Serial.print(" cm || ");
+    Serial.print("Distance: ");
+    Serial.print(distance);
+    Serial.println(" cm || ");
 
     // More Serial coms
-    Serial.print("THROTTLE: ");
-    Serial.print(input_THROTTLE);
-    Serial.print(" MAPPED TO ");
-    Serial.print(value_THROTTLE);
-    Serial.print(" IN-->OUT ");
-    Serial.print(feedback_THROTTLE);
-    Serial.print(" MAPPED TO ");
-    Serial.println(feedback_value_THROTTLE);
+    // Serial.print("THROTTLE: ");
+    // Serial.print(input_THROTTLE);
+    // Serial.print(" MAPPED TO ");
+    // Serial.print(value_THROTTLE);
+    // Serial.print(" IN-->OUT ");
+    // Serial.print(feedback_THROTTLE);
+    // Serial.print(" Gives ");
+    // Serial.println(feedback_THROTTLE);
     // Serial.print(" || ");
 
     // Serial.print("PITCH: ");
@@ -116,6 +129,29 @@ void loop() {
     previousTime = currentTime;
   }
 
+}
+
+void pwmGeneration() {
+  static unsigned long previousMicros = 0;
+  static unsigned long currentMicros = 0;
+  static bool pwmState = false;
+
+  currentMicros = micros();
+  unsigned long period = calculatePeriod(pwmFrequency);
+  unsigned long onTime = (dutyCycle / 100.0) * period;
+
+  if (currentMicros - previousMicros >= period) {
+    previousMicros = currentMicros;
+    pwmState = false;
+  } else if (currentMicros - previousMicros >= onTime) {
+    pwmState = true;
+  }
+
+  digitalWrite(pwmPin, pwmState);
+}
+
+long calculatePeriod(int frequency) {
+  return 1000000 / frequency;  // Convert frequency to period in microseconds
 }
 
 // UltraSonic distance function 
