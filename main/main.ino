@@ -5,8 +5,8 @@
 #define MIN_PULSE_LENGTH 1000 // Minimum pulse length in µs
 #define MAX_PULSE_LENGTH 2000 // Maximum pulse length in µs
 #define MOD_PULSE_LENGTH 1500 // Mid pulse length in µs
-#define PLS_PULSE_LENGTH = 1650
-#define MNS_PULSE_LENGTH = 1350
+#define PLS_PULSE_LENGTH 1650
+#define MNS_PULSE_LENGTH 1350
 
 // We create variables for the time width values of each PWM input signal
 unsigned long counter_1, counter_2, counter_3, counter_4, current_count;
@@ -31,8 +31,12 @@ const int front_trigPin = 4;
 const int front_echoPin = 7;
 
 // Timing variables
-unsigned long previousTime = 0;
-const unsigned long interval = 1000; // Measurement interval in milliseconds
+unsigned long previousTime = 0, arming_previousTime = 0, disarming_previousTime = 0;
+const unsigned long interval = 1000, arming_interval = 5000, disarming_interval = 22000; // Measurement interval in milliseconds
+
+// Arming status
+bool Armed = 0;
+
 
 void setup() { 
    
@@ -48,8 +52,8 @@ void setup() {
   output_THROTTLE.attach(5);  //attach pin D5 to output THROTTLE
 
   // Define ultrasonic sensor pins as input/output
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
+  pinMode(front_trigPin, OUTPUT);
+  pinMode(front_echoPin, INPUT);
 
   // Serial settings
   Serial.begin(9600);  
@@ -64,16 +68,39 @@ void loop() {
   input_ROLL;
   input_THROTTLE;
 
-  // Write the output channels with the received values accordingly
-  output_YAW.writeMicroseconds(input_YAW); 
-  output_PITCH.writeMicroseconds(input_PITCH);
-  output_ROLL.writeMicroseconds(input_ROLL);
-  output_THROTTLE.writeMicroseconds(input_THROTTLE);
-
   // Call the function to get the distance measurement
-  long distance = getDistance(front_trigPin, front_echoPin);
+  long front_distance = getDistance(front_trigPin, front_echoPin);
 
-  
+  // Drone arming logic
+  if (input_THROTTLE >= MAX_PULSE_LENGTH && input_PITCH >= MAX_PULSE_LENGTH && Armed == 0) {
+    unsigned long arming_currentTime = millis();
+    if (arming_currentTime - arming_previousTime >= arming_interval) { // Wait for 5 secs
+      // Arm the drone
+      arm();
+      // update the arming status
+      Armed = 1;
+      // Update the previous time to the current time
+      arming_previousTime = arming_currentTime;
+    }
+  } else if (input_THROTTLE <= (MIN_PULSE_LENGTH + 50)) {
+    unsigned long disarming_currentTime = millis();
+    if (disarming_currentTime - disarming_previousTime >= disarming_interval) { // Wait for 20 secs ++
+      // update the arming status
+      Armed = 0;
+      // Update the previous time to the current time
+      disarming_previousTime = disarming_currentTime;
+    }
+  }
+
+  if (front_distance < 150) {
+    moveBackward(); // if attitude hold is functional other signal do not have to be processed in this condition ###  ATTENTION  ###
+  } else {
+    // Write the output channels with the received values accordingly
+    output_YAW.writeMicroseconds(input_YAW); 
+    output_PITCH.writeMicroseconds(input_PITCH);
+    output_ROLL.writeMicroseconds(input_ROLL);
+    output_THROTTLE.writeMicroseconds(input_THROTTLE);
+  }
 
   // Check if it's time for a new measurement
   unsigned long currentTime = millis();
@@ -81,7 +108,7 @@ void loop() {
     
     // Print the distance to the Serial Monitor
     Serial.print("Distance: ");
-    Serial.print(distance);
+    Serial.print(front_distance);
     Serial.print(" cm || ");
 
     // Update the previous time to the current time
