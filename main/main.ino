@@ -26,9 +26,10 @@ Servo output_PITCH;    //In my case channel 2 of the receiver and pin D3 of ardu
 Servo output_ROLL;     //In my case channel 1 of the receiver and pin D2 of arduino
 Servo output_THROTTLE; //In my case channel 3 of the receiver and pin D5 of arduino
 
-// Ultrasonic sensor pins
+// Ultrasonic sensor pins and variables
 const int front_trigPin = 4;
 const int front_echoPin = 7;
+long front_distance = 0;
 
 // Timing variables
 unsigned long previousTime = 0, arming_previousTime = 0, disarming_previousTime = 0;
@@ -68,20 +69,28 @@ void loop() {
   input_ROLL;
   input_THROTTLE;
 
-  // Call the function to get the distance measurement
-  long front_distance = getDistance(front_trigPin, front_echoPin);
+  // Check if it's time for a new measurement
+  unsigned long currentTime = millis();
+  if (currentTime - previousTime >= interval) {
+    // Call the function to get the distance measurement
+    front_distance = getDistance(front_trigPin, front_echoPin);
+    // Print the distance to the Serial Monitor
+    Serial.print("Distance: ");
+    Serial.print(front_distance);
+    Serial.println(" cm ");
+    // Update the previous time to the current time
+    previousTime = currentTime;
+  }
 
   // Drone arming logic
   if (input_THROTTLE >= MAX_PULSE_LENGTH && input_PITCH >= MAX_PULSE_LENGTH && Armed == 0) {
-    unsigned long arming_currentTime = millis();
-    if (arming_currentTime - arming_previousTime >= arming_interval) { // Wait for 5 secs
-      // Arm the drone
-      arm();
-      // update the arming status
-      Armed = 1;
-      // Update the previous time to the current time
-      arming_previousTime = arming_currentTime;
-    }
+    // Arm the drone
+    arm();
+    // Small delay for safety 
+    delay(5000);
+  } else if (input_THROTTLE >= MAX_PULSE_LENGTH && input_PITCH >= MAX_PULSE_LENGTH && Armed == 1){
+    // Take off
+    takeOff();
   } else if (input_THROTTLE <= (MIN_PULSE_LENGTH + 50)) {
     unsigned long disarming_currentTime = millis();
     if (disarming_currentTime - disarming_previousTime >= disarming_interval) { // Wait for 20 secs ++
@@ -92,7 +101,7 @@ void loop() {
     }
   }
 
-  if (front_distance < 150) {
+  if (front_distance < 10) {
     moveBackward(); // if attitude hold is functional other signal do not have to be processed in this condition ###  ATTENTION  ###
   } else {
     // Write the output channels with the received values accordingly
@@ -101,27 +110,21 @@ void loop() {
     output_ROLL.writeMicroseconds(input_ROLL);
     output_THROTTLE.writeMicroseconds(input_THROTTLE);
   }
-
-  // Check if it's time for a new measurement
-  unsigned long currentTime = millis();
-  if (currentTime - previousTime >= interval) {
-    
-    // Print the distance to the Serial Monitor
-    Serial.print("Distance: ");
-    Serial.print(front_distance);
-    Serial.print(" cm || ");
-
-    // Update the previous time to the current time
-    previousTime = currentTime;
-  }
-
 }
 
 // Drone arming function
 
 void arm(){
-  output_THROTTLE.writeMicroseconds(MNS_PULSE_LENGTH);
-  output_YAW.writeMicroseconds(MNS_PULSE_LENGTH);
+  unsigned long arming_currentTime = millis();
+  // Update the previous time to the current time
+  arming_previousTime = arming_currentTime;
+  while (arming_currentTime - arming_previousTime <= arming_interval) { // Loop for 5 secs
+    output_THROTTLE.writeMicroseconds(MNS_PULSE_LENGTH);
+    output_YAW.writeMicroseconds(MNS_PULSE_LENGTH);
+    arming_currentTime = millis();
+  }
+  // update the arming status
+  Armed = 1;
 }
 
 // Movement functions
@@ -134,8 +137,13 @@ void moveBackward(){
   output_PITCH.writeMicroseconds(MNS_PULSE_LENGTH);
 }
 
-void takeOff(){
-  output_THROTTLE.writeMicroseconds(PLS_PULSE_LENGTH);
+void takeOff(){ // the values of the signal have to be adjusted according to the flight test results
+  output_THROTTLE.writeMicroseconds(MIN_PULSE_LENGTH + 200);     
+  delay(1000);
+  output_THROTTLE.writeMicroseconds(MIN_PULSE_LENGTH + 300);
+  delay(1000);
+  output_THROTTLE.writeMicroseconds(MIN_PULSE_LENGTH + 400);
+  delay(3000);
 }
 
 void land(){
