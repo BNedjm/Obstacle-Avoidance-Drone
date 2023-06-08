@@ -70,7 +70,7 @@ void loop() {
   input_PITCH;
   input_ROLL;
   input_THROTTLE;
-  inputs = [input_YAW, input_PITCH, input_ROLL,input_THROTTLE];
+  int inputs[] = {input_YAW, input_PITCH, input_ROLL,input_THROTTLE};
 
   // Check if it's time for a new measurement
   unsigned long currentTime = millis();
@@ -120,7 +120,7 @@ void loop() {
     if (front_distance < 100) {
       moveBackward(); // if attitude hold is functional other signal do not have to be processed in this condition ###  ATTENTION  ###
     } else if (front_distance < 150){
-      moveHold()
+      moveHold();
     } else {
       // Write the output PITCH accordingly
       output_PITCH.writeMicroseconds(input_PITCH);
