@@ -28,15 +28,16 @@ Servo output_THROTTLE; //In my case channel 3 of the receiver and pin D5 of ardu
 // Ultrasonic sensor pins and variables
 const int front_trigPin = 4;
 const int front_echoPin = 7;
-long front_distance = 0;
+long front_distance = 500;
 
 // Timing variables
-unsigned long previousTime = 0, arming_previousTime = 0, disarming_previousTime = 0;
-const unsigned long interval = 1000, arming_interval = 5000, disarming_interval = 22000; // Measurement interval in milliseconds
+unsigned long previousTime = 0, arming_previousTime = 0, disarming_previousTime = 0, obs_previousTime = 0;
+const unsigned long interval = 1000, arming_interval = 5000, disarming_interval = 22000, obs_interval = 60000; // Measurement interval in milliseconds
 
 // Arming and Flying status
 bool Armed = 0;
 bool Flying = 0;
+bool obstacle_detect_active = 0;
 
 
 void setup() { 
@@ -70,7 +71,11 @@ void loop() {
   input_PITCH;
   input_ROLL;
   input_THROTTLE;
-  int inputs[] = {input_YAW, input_PITCH, input_ROLL,input_THROTTLE};
+  // output_PITCH.writeMicroseconds(input_PITCH);
+  // output_YAW.writeMicroseconds(input_YAW); 
+  // output_ROLL.writeMicroseconds(input_ROLL);
+  // output_THROTTLE.writeMicroseconds(input_THROTTLE);
+  // int inputs[] = {input_YAW, input_PITCH, input_ROLL,input_THROTTLE};
 
   // Check if it's time for a new measurement
   unsigned long currentTime = millis();
@@ -78,59 +83,87 @@ void loop() {
     // Call the function to get the distance measurement
     front_distance = getDistance(front_trigPin, front_echoPin);
     // Print the distance to the Serial Monitor
-    Serial.print("Distance: ");
-    Serial.print(front_distance);
-    Serial.println(" cm ");
+    // Serial.print("Distance: ");
+    // Serial.print(front_distance);
+    // Serial.print(" cm ");
+
+    // Serial.print("yw:");
+    // Serial.print(input_YAW);
+    // Serial.print("  Pt:");
+    // Serial.print(input_PITCH);
+    // Serial.print("  rl:");
+    // Serial.print(input_ROLL);
+    // Serial.print("  Th:");
+    // Serial.println(input_THROTTLE);
     // Update the previous time to the current time
     previousTime = currentTime;
   }
 
   // Drone arming and take off logic
-  if (input_THROTTLE >= MAX_PULSE_LENGTH && input_PITCH >= MAX_PULSE_LENGTH && Armed == 0 && Flying == 0) { // this takes 10 seconds
-    // Arm the drone
-    arm();
-    // Small delay for safety - 5 seconds 
-    delay(5000);
-  } else if (input_THROTTLE >= MAX_PULSE_LENGTH && input_PITCH >= MAX_PULSE_LENGTH && Armed == 1 && Flying == 0){ // this takes 5 seconds
-    // Take off
-    takeOff();
-  } else if (input_THROTTLE <= (MIN_PULSE_LENGTH + 50) && Armed == 1 && Flying == 1) {
-    unsigned long disarming_currentTime = millis();
-    if (disarming_currentTime - disarming_previousTime >= disarming_interval) { // Wait for 20 secs ++
-      // update the arming status as well as the flying status
-      Armed = 0;
-      Flying = 0;
-      // Update the previous time to the current time
-      disarming_previousTime = disarming_currentTime;
-    }
-  }
+  // if (input_THROTTLE >= (MAX_PULSE_LENGTH-50) && input_PITCH >= (MAX_PULSE_LENGTH-50) && Armed == 0 && Flying == 0) { // this takes 10 seconds
+  //   // Arm the drone
+  //   arm();
+  //   // Small delay for safety - 5 seconds 
+  //   delay(5000);
+  // } else if (input_THROTTLE >= (MAX_PULSE_LENGTH-50) && input_PITCH >= (MAX_PULSE_LENGTH-50) && Armed == 1 && Flying == 0){ // this takes 5 seconds
+  //   // Take off
+  //   takeOff();
+  // } else if (input_THROTTLE <= (MIN_PULSE_LENGTH + 50) && Armed == 1) {
+  //   unsigned long disarming_currentTime = millis();
+  //   if (disarming_currentTime - disarming_previousTime >= disarming_interval) { // Wait for 20 secs ++
+  //     // update the arming status as well as the flying status
+  //     Armed = 0;
+  //     Flying = 0;
+  //     // Update the previous time to the current time
+  //     disarming_previousTime = disarming_currentTime;
+  //   }
+  // }
 
-  if (Flying == 1){
-    // this section is for emergency situations | lose of signal | signal value out of range
-    for (int i = 0; i < 4; i++){ // Failsafe - in code
-      if (inputs[i] < MIN_PULSE_LENGTH || inputs[i] > MAX_PULSE_LENGTH){ 
-      output_PITCH.writeMicroseconds(MOD_PULSE_LENGTH);
-      output_YAW.writeMicroseconds(MOD_PULSE_LENGTH); 
-      output_ROLL.writeMicroseconds(MOD_PULSE_LENGTH);
-      output_THROTTLE.writeMicroseconds(MIN_PULSE_LENGTH + 200); // this value has to be adjusted accordingly
-      }
-    }
+  // if (Flying == 1){
+  //   // this section is for emergency situations | lose of signal | signal value out of range
+  //   // for (int i = 0; i < 4; i++){ // Failsafe - in code
+  //   //   if (inputs[i] < MIN_PULSE_LENGTH || inputs[i] > MAX_PULSE_LENGTH){ 
+  //   //   output_PITCH.writeMicroseconds(MOD_PULSE_LENGTH);
+  //   //   output_YAW.writeMicroseconds(MOD_PULSE_LENGTH); 
+  //   //   output_ROLL.writeMicroseconds(MOD_PULSE_LENGTH);
+  //   //   output_THROTTLE.writeMicroseconds(MIN_PULSE_LENGTH + 200); // this value has to be adjusted accordingly
+  //   //   }
+  //   // }
     
-    // this section is for obstacle detection and actions to be taken accordingly  
-    if (front_distance < 100) {
-      moveBackward(); // if attitude hold is functional other signal do not have to be processed in this condition ###  ATTENTION  ###
-    } else if (front_distance < 150){
-      moveHold();
-    } else {
-      // Write the output PITCH accordingly
-      output_PITCH.writeMicroseconds(input_PITCH);
-    }
-    // Write the rest of output channels
-    output_YAW.writeMicroseconds(input_YAW); 
-    output_ROLL.writeMicroseconds(input_ROLL);
-    output_THROTTLE.writeMicroseconds(input_THROTTLE);
-  }
+  //   // this section is for obstacle detection and actions to be taken accordingly  
+  //   if (front_distance < 100) {
+  //     moveBackward(); // if attitude hold is functional other signal do not have to be processed in this condition ###  ATTENTION  ###
+  //   } else if (front_distance < 150){
+  //     moveHold();
+  //   } else {
+  //     // Write the output PITCH accordingly
+  //     output_PITCH.writeMicroseconds(input_PITCH);
+  //   }
+  // }
 
+  // this section is to activate the obstacle detection after 60 secs from starting the program
+  if(obstacle_detect_active == 0){
+    unsigned long obs_currentTime = millis();
+    if (obs_currentTime - obs_previousTime >= obs_interval) {
+      obstacle_detect_active = 1;
+      obs_previousTime = obs_currentTime;
+    }
+  }
+  
+  // this section is for obstacle detection and actions to be taken accordingly  
+  if (front_distance < 100 && obstacle_detect_active == 1) {
+    moveBackward(); // if attitude hold is functional other signal do not have to be processed in this condition ###  ATTENTION  ###
+  } else if (front_distance < 150 && obstacle_detect_active == 1){
+    moveHold();
+  } else {
+    // Write the output PITCH accordingly
+    output_PITCH.writeMicroseconds(input_PITCH);
+  }
+  
+  // Write the rest of output channels
+  output_YAW.writeMicroseconds(input_YAW); 
+  output_ROLL.writeMicroseconds(input_ROLL);
+  output_THROTTLE.writeMicroseconds(input_THROTTLE);
 }
 
 // Drone arming function
@@ -140,8 +173,8 @@ void arm(){
   // Update the previous time to the current time
   arming_previousTime = arming_currentTime;
   while (arming_currentTime - arming_previousTime <= arming_interval) { // Loop for 5 secs
-    output_THROTTLE.writeMicroseconds(MNS_PULSE_LENGTH);
-    output_YAW.writeMicroseconds(MNS_PULSE_LENGTH);
+    output_THROTTLE.writeMicroseconds(MIN_PULSE_LENGTH);
+    output_YAW.writeMicroseconds(MAX_PULSE_LENGTH);
     arming_currentTime = millis();
   }
   // update the arming status
@@ -163,11 +196,11 @@ void moveBackward(){
 }
 
 void takeOff(){ // the values of the signal have to be adjusted according to the flight test results
-  output_THROTTLE.writeMicroseconds(MIN_PULSE_LENGTH + 200);     
+  output_THROTTLE.writeMicroseconds(MIN_PULSE_LENGTH + 50);     
   delay(1000);
-  output_THROTTLE.writeMicroseconds(MIN_PULSE_LENGTH + 300);
+  output_THROTTLE.writeMicroseconds(MIN_PULSE_LENGTH + 100);
   delay(1000);
-  output_THROTTLE.writeMicroseconds(MIN_PULSE_LENGTH + 400);
+  output_THROTTLE.writeMicroseconds(MIN_PULSE_LENGTH + 150);
   delay(3000);
   // update the flying status
   Flying = 1;
